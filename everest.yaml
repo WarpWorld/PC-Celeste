@@ -1,0 +1,6 @@
+- Name: CrowdControl
+  Version: 1.0.3
+  DLL: CrowdControl.dll
+  Dependencies:
+    - Name: Everest
+      Version: 1.563.0
