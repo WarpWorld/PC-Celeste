@@ -55,7 +55,7 @@ namespace CrowdControl
             {
                 try
                 {
-                    _client = new TcpClient();
+                    _client = new TcpClient { ExclusiveAddressUse = false, LingerState = new LingerOption(true, 0) };
                     await _client.ConnectAsync("127.0.0.1", 58430);
                     if (!_client.Connected) { continue; }
                     Connected = true;
