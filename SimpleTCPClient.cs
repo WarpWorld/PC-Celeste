@@ -166,6 +166,7 @@ namespace CrowdControl
             public string? message;
             public object?[] parameters;
             public Target?[] targets;
+            public long? duration; //milliseconds
             public string? viewer;
             public int? cost;
             public RequestType type;
@@ -203,6 +204,8 @@ namespace CrowdControl
                 EffectRequest = 0x00,
 
                 Login = 0xF0,
+                LoginSuccess = 0xF1,
+                Disconnect = 0xFE,
                 KeepAlive = 0xFF
             }
         }

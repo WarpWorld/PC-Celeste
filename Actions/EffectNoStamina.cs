@@ -10,7 +10,7 @@ namespace Celeste.Mod.CrowdControl.Actions
 
         public override EffectType Type { get; } = EffectType.Timed;
 
-        public override TimeSpan Duration { get; } = TimeSpan.FromSeconds(15);
+        public override TimeSpan DefaultDuration { get; } = TimeSpan.FromSeconds(15);
 
         public override string[] Mutex { get; } = { "stamina" };
 

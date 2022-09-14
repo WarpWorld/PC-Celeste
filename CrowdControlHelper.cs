@@ -130,10 +130,24 @@ namespace Celeste.Mod.CrowdControl
                     switch (action.Type)
                     {
                         case Effect.EffectType.Timed:
-                            if (action.Elapsed <= action.Duration)
+                            TimeSpan timeRemaining = action.Duration - action.Elapsed;
+                            if (timeRemaining > TimeSpan.Zero)
                             {
                                 action.Update(gameTime);
-                                if ((Engine.Scene is Level level) && level.InCutscene) { action.Elapsed -= gameTime.ElapsedGameTime; }
+                                if ((Engine.Scene is not Level level) || level.InCutscene)
+                                {
+                                    if (action.IsTimerTicking)
+                                    {
+                                        action.IsTimerTicking = false;
+                                        Respond(action.CurrentRequest, SimpleTCPClient.EffectResult.Paused, timeRemaining).Forget();
+                                    }
+                                    action.Elapsed -= gameTime.ElapsedGameTime;
+                                }
+                                else if (!action.IsTimerTicking)
+                                {
+                                    action.IsTimerTicking = true;
+                                    Respond(action.CurrentRequest, SimpleTCPClient.EffectResult.Resumed, timeRemaining).Forget();
+                                }
                             }
                             else { action.TryStop(); }
                             break;
@@ -196,24 +210,18 @@ namespace Celeste.Mod.CrowdControl
                 Respond(request, SimpleTCPClient.EffectResult.Unavailable).Forget();
                 return;
             }
-
-            int len = effect.ParameterTypes.Length;
-            if ((request.parameters?.Length ?? 0) < len)
+            
+            if ((request.parameters?.Length ?? 0) < effect.ParameterTypes.Length)
             {
                 Respond(request, SimpleTCPClient.EffectResult.Failure).Forget();
                 return;
-            }
-            object[] p = new object[len];
-            for (int i = 0; i < len; i++)
-            {
-                p[i] = Convert.ChangeType(request.parameters[i], effect.ParameterTypes[i]);
             }
 
             if (effect.Type == Effect.EffectType.BidWar)
             {
                 foreach (Effect e in ActiveGroup(effect.Group)) { e.TryStop(); }
             }
-            if (!effect.TryStart(p))
+            if (!effect.TryStart(request))
             {
                 //Log.Debug($"Effect {request.code} could not start.");
                 Respond(request, SimpleTCPClient.EffectResult.Retry).Forget();

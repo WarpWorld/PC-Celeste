@@ -10,23 +10,29 @@ namespace Celeste.Mod.CrowdControl.Actions
 {
     public abstract class Effect
     {
-        private static int _next_id = 0;
+        private static int _next_id;
         private uint LocalID { get; } = unchecked((uint) Interlocked.Increment(ref _next_id));
 
         public abstract string Code { get; }
 
-        protected bool _active = false;
-        private readonly object _activity_lock = new object();
+        protected bool _active;
+        private readonly object _activity_lock = new();
 
         public TimeSpan Elapsed { get; set; }
 
+        public bool IsTimerTicking { get; set; }
+
         protected Player Player => CrowdControlHelper.Instance.Player;
 
-        public virtual EffectType Type { get; } = EffectType.Instant;
+        public virtual EffectType Type => EffectType.Instant;
 
-        public virtual TimeSpan Duration { get; } = TimeSpan.Zero;
+        public SimpleTCPClient.Request? CurrentRequest { get; private set; }
 
-        public virtual Type[] ParameterTypes { get; } = new Type[0];
+        public TimeSpan Duration { get; private set; } = TimeSpan.Zero;
+
+        public virtual TimeSpan DefaultDuration => TimeSpan.Zero;
+
+        public virtual Type[] ParameterTypes => System.Type.EmptyTypes;
 
         protected object[] Parameters { get; private set; } = new object[0];
 
@@ -98,15 +104,27 @@ namespace Celeste.Mod.CrowdControl.Actions
 
         public virtual bool IsReady() => (Engine.Scene is Level) && (Player.Active);
 
-        public bool TryStart() => TryStart(new object[0]);
+        //public bool TryStart() => TryStart(new object[0]);
 
-        public bool TryStart(object[] parameters)
+        public bool TryStart(SimpleTCPClient.Request request)
         {
             lock (_activity_lock)
             {
                 if (Active || (!IsReady())) { return false; }
                 if (!TryGetMutexes(Mutex)) { return false; }
-                Parameters = parameters;
+
+                CurrentRequest = request;
+
+                int len = ParameterTypes.Length;
+                object[] p = new object[len];
+                for (int i = 0; i < len; i++)
+                {
+                    p[i] = Convert.ChangeType(request.parameters[i], ParameterTypes[i]);
+                }
+                Parameters = p;
+
+                Duration = request.duration.HasValue ? TimeSpan.FromMilliseconds(request.duration.Value) : DefaultDuration;
+
                 Active = true;
                 return true;
             }
@@ -119,6 +137,7 @@ namespace Celeste.Mod.CrowdControl.Actions
                 if (!Active) { return false; }
                 FreeMutexes(Mutex);
                 Active = false;
+                CurrentRequest = null;
                 return true;
             }
         }

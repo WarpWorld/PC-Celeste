@@ -13,7 +13,7 @@ namespace Celeste.Mod.CrowdControl.Actions
 
         public override EffectType Type { get; } = EffectType.Timed;
 
-        public override TimeSpan Duration { get; } = TimeSpan.FromSeconds(15);
+        public override TimeSpan DefaultDuration { get; } = TimeSpan.FromSeconds(15);
 
         public Hahaha Laughter;
         private FieldInfo autoTriggerLaughOrigin = typeof(Hahaha).GetField("autoTriggerLaughOrigin", BindingFlags.Instance | BindingFlags.NonPublic);
