@@ -38,6 +38,9 @@
       <HintPath>..\..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Celeste\Celeste.exe</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="ConnectorLib.JSON">
+      <HintPath>.\ConnectorLib.JSON.dll</HintPath>
+    </Reference>
     <Reference Include="FNA">
       <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Celeste\FNA.dll</HintPath>
       <Private>False</Private>

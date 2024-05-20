@@ -309,7 +309,7 @@ public class CrowdControlHelper : DrawableGameComponent
             {
                 id = request.id,
                 status = result,
-                timeRemaining = ((long?)timeRemaining?.TotalMilliseconds) ?? 0L,
+                //timeRemaining = ((long?)timeRemaining?.TotalMilliseconds) ?? 0L,
                 message = message,
                 type = Response.ResponseType.EffectRequest
             });

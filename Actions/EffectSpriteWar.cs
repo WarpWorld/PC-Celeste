@@ -1,5 +1,4 @@
 ﻿using System;
-using CrowdControl;
 using Microsoft.Xna.Framework;
 using Monocle;
 
