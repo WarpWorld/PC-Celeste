@@ -23,7 +23,7 @@ public class EffectOshiro : Effect
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (!(Engine.Scene is Level level)) || level.Entities.Contains(Oshiro) || level.Entities.GetToAdd().Contains(Oshiro)) { return; }
+        if (!Active || (Engine.Scene is not Level level) || level.Entities.Contains(Oshiro) || level.Entities.GetToAdd().Contains(Oshiro)) { return; }
 
         Vector2 position = new(level.Bounds.Left - 32f, level.Bounds.Top + level.Bounds.Height / 2f);
         Oshiro = NewOshiro(position);
@@ -33,7 +33,7 @@ public class EffectOshiro : Effect
     public override void End()
     {
         base.End();
-        if ((Oshiro == null) || (!(Engine.Scene is Level level))) { return; }
+        if ((Oshiro == null) || (Engine.Scene is not Level level)) { return; }
 
         level.Remove(Oshiro);
         Oshiro = null;

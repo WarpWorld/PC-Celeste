@@ -34,12 +34,12 @@ public class EffectChaser : Effect
     {
         base.Update(gameTime);
         Player player = Player;
-        if (!Active || !(Engine.Scene is Level level) || (player == null)) { return; }
+        if (!Active || Engine.Scene is not Level level || (player == null)) { return; }
 
         if (level.Entities.Contains(Chaser) || level.Entities.GetToAdd().Contains(Chaser)) { return; }
 
         Music = level.Session.Audio.Music.Clone();
-        Chaser = new BadelineOldsite(Player.Position + new Vector2(0f, -8f), 0);
+        Chaser = new(Player.Position + new Vector2(0f, -8f), 0);
         level.Add(Chaser);
         //level.CancelCutscene();
         //Chaser.StartChasingRoutine(level);

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using Monocle;
 
 namespace Celeste.Mod.CrowdControl.Actions;
 
@@ -20,6 +21,8 @@ public class EffectGiantOshiro : EffectOshiro
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
+        if (!Active || (Engine.Scene is not Level level) || (Player == null)) { return; }
+
         if (Oshiro != null) { Oshiro.Sprite.Scale = SCALE; }
     }
 }

@@ -54,7 +54,7 @@ public class SimpleTCPClient : IDisposable
         {
             try
             {
-                _client = new TcpClient { ExclusiveAddressUse = false, LingerState = new LingerOption(true, 0) };
+                _client = new() { ExclusiveAddressUse = false, LingerState = new(true, 0) };
                 await _client.ConnectAsync("127.0.0.1", 58430);
                 if (!_client.Connected) { continue; }
                 Connected = true;
@@ -79,13 +79,13 @@ public class SimpleTCPClient : IDisposable
 
     private async void Listen()
     {
-        List<byte> mBytes = new List<byte>();
+        List<byte> mBytes = new();
         byte[] buf = new byte[4096];
         while (!_quitting.IsCancellationRequested)
         {
             try
             {
-                if (!(await _ready.WaitHandle.WaitOneAsync(_quitting.Token))) { continue; }
+                if (!(await _ready.WaitHandle.WaitOneAsync(_quitting.Token))) continue;
                 Socket socket = _client.Client;
 
                 int bytesRead = socket.Receive(buf);
@@ -100,7 +100,7 @@ public class SimpleTCPClient : IDisposable
                         //Log.Debug($"Got a complete message: {mBytes.ToArray().ToHexadecimalString()}");
                         string json = Encoding.UTF8.GetString(mBytes.ToArray());
                         //Log.Debug($"Got a complete message: {json}");
-                        EffectRequest req = JsonConvert.DeserializeObject<EffectRequest>(json, JSON_SETTINGS);
+                        SimpleJSONRequest req = SimpleJSONRequest.Parse(json);
                         //Log.Debug($"Got a request with ID {req.id}.");
                         try { OnRequestReceived?.Invoke(req); }
                         catch (Exception e) { Log.Error(e); }
@@ -113,7 +113,7 @@ public class SimpleTCPClient : IDisposable
                 Log.Error(e);
                 _error.Set();
             }
-            finally { if (!_quitting.IsCancellationRequested) { await Task.Delay(TimeSpan.FromSeconds(1)); } }
+            finally { if (!_quitting.IsCancellationRequested) await Task.Delay(TimeSpan.FromSeconds(1)); }
         }
     }
 
@@ -123,7 +123,7 @@ public class SimpleTCPClient : IDisposable
         {
             try
             {
-                if (Connected) { await Respond(new EffectResponse { id = 0, type = ResponseType.KeepAlive }); }
+                if (Connected) { await Respond(new() { id = 0, type = ResponseType.KeepAlive }); }
                 await Task.Delay(TimeSpan.FromSeconds(1));
             }
             catch (Exception e)
@@ -135,7 +135,7 @@ public class SimpleTCPClient : IDisposable
         }
     }
 
-    public event Action<EffectRequest> OnRequestReceived;
+    public event Action<SimpleJSONRequest> OnRequestReceived;
     public event Action OnConnected;
 
     public async Task<bool> Respond(EffectResponse response)

@@ -20,14 +20,14 @@ public class EffectWind : Effect
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (!(Engine.Scene is Level level)) || level.Entities.Contains(Wind) || level.Entities.GetToAdd().Contains(Wind)) { return; }
+        if (!Active || (Engine.Scene is not Level level) || level.Entities.Contains(Wind) || level.Entities.GetToAdd().Contains(Wind)) { return; }
 
         WindController controller = level.Entities.FindFirst<WindController>();
 
         if (controller == null)
         {
             level.Foreground.Backdrops.Add(new WindSnowFG { Alpha = 0f });
-            Wind = controller = new WindController(WindController.Patterns.Alternating);
+            Wind = controller = new(WindController.Patterns.Alternating);
             controller.SetStartPattern();
             level.Add(controller);
         }

@@ -16,8 +16,7 @@ public class EffectEarthquake: Effect
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (!(Engine.Scene is Level level))) { return; }
-
+        if (!Active || (Engine.Scene is not Level level)) return;
         level.Shake();
     }
 }

@@ -21,7 +21,7 @@ public class EffectSeeker : Effect
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (!(Engine.Scene is Level level)) || level.Entities.Contains(Seeker) || level.Entities.GetToAdd().Contains(Seeker)) { return; }
+        if (!Active || (Engine.Scene is not Level level) || level.Entities.Contains(Seeker) || level.Entities.GetToAdd().Contains(Seeker)) { return; }
 
         Vector2 position = new(level.Bounds.Left + (level.Bounds.Width / 2f), level.Bounds.Top + +(level.Bounds.Height / 2f));
         Seeker = NewSeeker(position);
@@ -31,7 +31,7 @@ public class EffectSeeker : Effect
     public override void End()
     {
         base.End();
-        if ((Seeker == null) || (!(Engine.Scene is Level level))) { return; }
+        if ((Seeker == null) || (Engine.Scene is not Level level)) { return; }
 
         level.Remove(Seeker);
         Seeker = null;

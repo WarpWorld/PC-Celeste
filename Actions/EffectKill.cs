@@ -13,7 +13,7 @@ public class EffectKill : Effect
     public override void Start()
     {
         base.Start();
-        if (!Active || (!(Engine.Scene is Level level)) || (!Player.Active)) { return; }
+        if (!Active || (Engine.Scene is not Level level) || (!Player.Active)) { return; }
 
         Player.Die(Vector2.Zero, true, true);
     }

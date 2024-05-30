@@ -6,10 +6,11 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Celeste.Mod.CrowdControl.Actions;
+using ConnectorLib.JSON;
 using CrowdControl;
 using Microsoft.Xna.Framework;
 using Monocle;
-using static CrowdControl.SimpleTCPClient;
+using Newtonsoft.Json.Linq;
 
 namespace Celeste.Mod.CrowdControl;
 
@@ -36,7 +37,9 @@ public class CrowdControlHelper : DrawableGameComponent
 
     private GameTime _last_time = new(TimeSpan.Zero, TimeSpan.Zero);
 
-    public Player Player;
+    public Player? Player;
+
+    public readonly Dictionary<string, Metadata.Metadata> Metadata = new();
 
     public readonly Dictionary<string, Effect> Effects = new();
     public IEnumerable<Effect> Active => Effects.Select(e => e.Value).Where(e => e.Active);
@@ -46,7 +49,7 @@ public class CrowdControlHelper : DrawableGameComponent
     {
         if (Instance != null) { return; }
 
-        Instance = new CrowdControlHelper(Celeste.Instance);
+        Instance = new(Celeste.Instance);
         Celeste.Instance.Components.Add(Instance);
     }
 
@@ -66,19 +69,30 @@ public class CrowdControlHelper : DrawableGameComponent
 #endif
         UpdateOrder = -10000;
         DrawOrder = 10000;
-            
+
+        //this may be GetEntryAssembly or GetExecutingAssembly depending on how the modloader works
         foreach (Type type in Assembly.GetEntryAssembly().GetTypes())
         {
             //Log.Debug($"Loaded type: {type.Name}");
-            if (!typeof(Effect).IsAssignableFrom(type) || type.IsAbstract) { continue; }
+            if (type.IsAbstract) { continue; }
 
-            Effect action = (Effect)type.GetConstructor(Everest._EmptyTypeArray).Invoke(Everest._EmptyObjectArray);
-            action.Load();
-            //Log.Debug($"Imported effect type: {type.Name}");
-            Effects.Add(action.Code, action);
+            if (typeof(Effect).IsAssignableFrom(type))
+            {
+                Effect action = (Effect)type.GetConstructor(Everest._EmptyTypeArray).Invoke(Everest._EmptyObjectArray);
+                action.Load();
+                //Log.Debug($"Imported effect type: {type.Name}");
+                Effects.Add(action.Code, action);
+            }
+
+            if (typeof(Metadata.Metadata).IsAssignableFrom(type))
+            {
+                Metadata.Metadata metadata = (Metadata.Metadata)type.GetConstructor(Type.EmptyTypes).Invoke([]);
+                //Log.Debug($"Imported metadata type: {type.Name}");
+                Metadata.Add(metadata.Key, metadata);
+            }
         }
 
-        _client = new SimpleTCPClient();
+        _client = new();
         _client.OnConnected += ClientConnected;
         _client.OnRequestReceived += ClientRequestReceived;
     }
@@ -92,7 +106,7 @@ public class CrowdControlHelper : DrawableGameComponent
 
     private void OnLogMessage(string s)
     {
-        _gui_messages.Enqueue(new GUIMessage { message = s, elapsed = TimeSpan.Zero });
+        _gui_messages.Enqueue(new() { message = s, elapsed = TimeSpan.Zero });
     }
 
     public static void Remove()
@@ -142,14 +156,14 @@ public class CrowdControlHelper : DrawableGameComponent
                                 if (action.IsTimerTicking)
                                 {
                                     action.IsTimerTicking = false;
-                                    Respond(action.CurrentRequest, EffectResult.Paused, timeRemaining).Forget();
+                                    Respond(action.CurrentRequest, EffectStatus.Paused, timeRemaining).Forget();
                                 }
                                 action.Elapsed -= gameTime.ElapsedGameTime;
                             }
                             else if (!action.IsTimerTicking)
                             {
                                 action.IsTimerTicking = true;
-                                Respond(action.CurrentRequest, EffectResult.Resumed, timeRemaining).Forget();
+                                Respond(action.CurrentRequest, EffectStatus.Resumed, timeRemaining).Forget();
                             }
                         }
                         else { action.TryStop(); }
@@ -203,40 +217,42 @@ public class CrowdControlHelper : DrawableGameComponent
         Monocle.Draw.SpriteBatch.End();
     }
 
-    private void ClientRequestReceived(Request request)
+    private void ClientRequestReceived(SimpleJSONRequest request)
     {
-        switch (request.type)
+        if (request is EffectRequest effectRequest)
         {
-            case Request.RequestType.Test:
-                HandleEffectTest(request);
-                return;
-            case Request.RequestType.Start:
-                HandleEffectStart(request);
-                return;
-            case Request.RequestType.Stop:
-                HandleEffectStop(request);
-                return;
-            default:
-                //not relevant for this game, ignore
-                return;
+            switch (effectRequest.type)
+            {
+                case RequestType.Test:
+                    HandleEffectTest(effectRequest);
+                    return;
+                case RequestType.Start:
+                    HandleEffectStart(effectRequest);
+                    return;
+                case RequestType.Stop:
+                    HandleEffectStop(effectRequest);
+                    return;
+                default:
+                    //not relevant for this game, ignore
+                    return;
+            }
         }
-            
     }
 
-    private void HandleEffectStart(Request request)
+    private void HandleEffectStart(EffectRequest request)
     {
         Log.Debug($"Got an effect start request [{request.id}:{request.code}].");
         if (!Effects.TryGetValue(request.code, out Effect effect))
         {
             Log.Error($"Effect {request.code} not found. Available effects: {string.Join(", ", Effects.Keys)}");
             //could not find the effect
-            Respond(request, EffectResult.Unavailable).Forget();
+            Respond(request, EffectStatus.Unavailable).Forget();
             return;
         }
 
-        if ((request.parameters?.Length ?? 0) < effect.ParameterTypes.Length)
+        if (((request.parameters as JArray)?.Count ?? 0) < effect.ParameterTypes.Length)
         {
-            Respond(request, EffectResult.Failure).Forget();
+            Respond(request, EffectStatus.Failure).Forget();
             return;
         }
 
@@ -247,15 +263,15 @@ public class CrowdControlHelper : DrawableGameComponent
         if (!effect.TryStart(request))
         {
             //Log.Debug($"Effect {request.code} could not start.");
-            Respond(request, EffectResult.Retry).Forget();
+            Respond(request, EffectStatus.Retry).Forget();
             return;
         }
 
         Log.Debug($"Effect {request.code} started.");
-        Respond(request, EffectResult.Success, ((effect.Type == Effect.EffectType.Timed) ? effect.Duration : null)).Forget();
+        Respond(request, EffectStatus.Success, ((effect.Type == Effect.EffectType.Timed) ? effect.Duration : null)).Forget();
     }
 
-    private void HandleEffectStop(Request request)
+    private void HandleEffectStop(EffectRequest request)
     {
         Log.Debug($"Got an effect stop request [{request.id}:{request.code}].");
         if (!Effects.TryGetValue(request.code, out Effect effect))
@@ -272,46 +288,53 @@ public class CrowdControlHelper : DrawableGameComponent
         }
 
         Log.Debug($"Effect {request.code} stopped.");
+        Respond(request, EffectStatus.Success).Forget();
     }
-    private void HandleEffectTest(Request request)
+    private void HandleEffectTest(EffectRequest request)
     {
         Log.Debug($"Got an effect test request [{request.id}:{request.code}].");
         if (!Effects.TryGetValue(request.code, out Effect effect))
         {
             Log.Error($"Effect {request.code} not found. Available effects: {string.Join(", ", Effects.Keys)}");
             //could not find the effect
-            Respond(request, EffectResult.Unavailable).Forget();
+            Respond(request, EffectStatus.Unavailable).Forget();
             return;
         }
 
-        if ((request.parameters?.Length ?? 0) < effect.ParameterTypes.Length)
+        if (((request.parameters as JArray)?.Count ?? 0) < effect.ParameterTypes.Length)
         {
-            Respond(request, EffectResult.Failure).Forget();
+            Respond(request, EffectStatus.Failure).Forget();
             return;
         }
 
         if (!effect.IsReady())
         {
             //Log.Debug($"Effect {request.code} was not ready.");
-            Respond(request, EffectResult.Retry).Forget();
+            Respond(request, EffectStatus.Retry).Forget();
             return;
         }
 
         Log.Debug($"Effect {request.code} is ready.");
-        Respond(request, EffectResult.Success, ((effect.Type == Effect.EffectType.Timed) ? effect.Duration : null)).Forget();
+        Respond(request, EffectStatus.Success, ((effect.Type == Effect.EffectType.Timed) ? effect.Duration : null)).Forget();
     }
 
-    private async Task<bool> Respond(Request request, EffectResult result, TimeSpan? timeRemaining = null, string message = "")
+    //in some other situation we might do a more advanced strategy where certain effects might
+    //want to include additional fields, but we're going to send these for all requests
+    private Dictionary<string, EffectResponseMetadata> GetMetadata()
+        => Metadata.Select(m => new KeyValuePair<string, EffectResponseMetadata>(m.Key, m.Value.TryGetValue())).ToDictionary();
+
+    private async Task<bool> Respond(EffectRequest request, EffectStatus result, TimeSpan? timeRemaining = null, string message = "")
     {
         try
         {
-            return await _client.Respond(new Response
+            return await _client.Respond(new()
             {
                 id = request.id,
                 status = result,
-                //timeRemaining = ((long?)timeRemaining?.TotalMilliseconds) ?? 0L,
+                timeRemaining = ((long?)timeRemaining?.TotalMilliseconds) ?? 0L,
                 message = message,
-                type = Response.ResponseType.EffectRequest
+                type = ResponseType.EffectRequest,
+                metadata = GetMetadata()
             });
         }
         catch (Exception e)

@@ -16,7 +16,7 @@ public class EffectIcePhysics : Effect
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (!(Engine.Scene is Level level)) || (Player == null)) { return; }
+        if (!Active || (Engine.Scene is not Level level) || (Player == null)) { return; }
 
         SaveData.Instance.Assists.LowFriction = true;
     }

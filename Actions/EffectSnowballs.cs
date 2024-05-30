@@ -19,16 +19,16 @@ public class EffectSnowballs : Effect
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (!(Engine.Scene is Level level)) || level.Entities.Contains(Snowball) || level.Entities.GetToAdd().Contains(Snowball)) { return; }
+        if (!Active || (Engine.Scene is not Level level) || level.Entities.Contains(Snowball) || level.Entities.GetToAdd().Contains(Snowball)) { return; }
 
-        Snowball = new Snowball();
+        Snowball = new();
         level.Add(Snowball);
     }
 
     public override void End()
     {
         base.End();
-        if ((Snowball == null) || (!(Engine.Scene is Level level))) { return; }
+        if ((Snowball == null) || (Engine.Scene is not Level level)) { return; }
 
         level.Remove(Snowball);
         Snowball = null;

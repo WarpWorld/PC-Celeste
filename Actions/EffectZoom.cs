@@ -16,7 +16,7 @@ public class EffectZoom: Effect
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (!(Engine.Scene is Level level)) || (Player == null)) { return; }
+        if (!Active || (Engine.Scene is not Level level) || (Player == null)) { return; }
 
         level.Camera.Zoom = 2f;
         level.Camera.Approach(Player.Position, 0.1f);
@@ -25,7 +25,7 @@ public class EffectZoom: Effect
     public override void End()
     {
         base.End();
-        if (!(Engine.Scene is Level level)) { return; }
+        if (Engine.Scene is not Level level) { return; }
 
         level.Camera.Zoom = 1f;
     }

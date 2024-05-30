@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
+using Monocle;
 
 namespace Celeste.Mod.CrowdControl.Actions;
 
@@ -17,6 +18,8 @@ public class EffectNoStamina : Effect
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
+        if (!Active || (Engine.Scene is not Level level) || (Player == null)) { return; }
+
         Player.Stamina = 0f;
     }
 }

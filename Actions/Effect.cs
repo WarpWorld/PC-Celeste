@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
+using ConnectorLib.JSON;
 using CrowdControl;
 using Microsoft.Xna.Framework;
 using Monocle;
@@ -22,11 +23,11 @@ public abstract class Effect
 
     public bool IsTimerTicking { get; set; }
 
-    protected Player Player => CrowdControlHelper.Instance.Player;
+    protected Player? Player => CrowdControlHelper.Instance.Player;
 
     public virtual EffectType Type => EffectType.Instant;
 
-    public SimpleTCPClient.Request? CurrentRequest { get; private set; }
+    public EffectRequest? CurrentRequest { get; private set; }
 
     public TimeSpan Duration { get; private set; } = TimeSpan.Zero;
 
@@ -44,7 +45,7 @@ public abstract class Effect
 
     private static bool TryGetMutexes(IEnumerable<string> mutexes)
     {
-        List<string> captured = new List<string>();
+        List<string> captured = new();
         bool result = true;
         foreach (string mutex in mutexes)
         {
@@ -106,7 +107,7 @@ public abstract class Effect
 
     //public bool TryStart() => TryStart(new object[0]);
 
-    public bool TryStart(SimpleTCPClient.Request request)
+    public bool TryStart(EffectRequest request)
     {
         lock (_activity_lock)
         {
