@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using Celeste.Mod.CrowdControl.Actions;
@@ -26,6 +28,11 @@ public class CrowdControlHelper : DrawableGameComponent
     private static readonly string INITIAL_CONNECT_WARNING = $"This plugin requires the Crowd Control client software.{Environment.NewLine}Please see https://crowdcontrol.live/ for more information.";
 
     private bool _connected_once = false;
+
+    private GameState? _last_game_state;
+
+    private const float GAME_STATUS_UPDATE_INTERVAL = 1f;
+    private float _game_status_update_timer = 0f;
 
     private class GUIMessage
     {
@@ -134,12 +141,19 @@ public class CrowdControlHelper : DrawableGameComponent
     {
         _last_time = gameTime;
         base.Update(gameTime);
-            
+
+        //Log.Message(_game_status_update_timer);
+        _game_status_update_timer += Engine.DeltaTime;
+        if (_game_status_update_timer >= GAME_STATUS_UPDATE_INTERVAL)
+        {
+            UpdateGameState();
+            _game_status_update_timer = 0f;
+        }
+
         if (!(Engine.Scene is GameLoader)) { GameReady = true; }
         if (!GameReady) { return; }
 
         Player = Engine.Scene?.Tracker?.GetEntity<Player>();
-
         foreach (Effect action in Active)
         {
             try
@@ -217,6 +231,7 @@ public class CrowdControlHelper : DrawableGameComponent
         Monocle.Draw.SpriteBatch.End();
     }
 
+    [SuppressMessage("ReSharper", "RedundantIfElseBlock")]
     private void ClientRequestReceived(SimpleJSONRequest request)
     {
         if (request is EffectRequest effectRequest)
@@ -233,10 +248,11 @@ public class CrowdControlHelper : DrawableGameComponent
                     HandleEffectStop(effectRequest);
                     return;
                 default:
-                    //not relevant for this game, ignore
                     return;
             }
         }
+        else if (request.type == RequestType.GameUpdate) UpdateGameState(true);
+        //...
     }
 
     private void HandleEffectStart(EffectRequest request)
@@ -323,11 +339,31 @@ public class CrowdControlHelper : DrawableGameComponent
     private Dictionary<string, EffectResponseMetadata> GetMetadata()
         => Metadata.Select(m => new KeyValuePair<string, EffectResponseMetadata>(m.Key, m.Value.TryGetValue())).ToDictionary();
 
+    private void UpdateGameState(bool force = false)
+    {
+        if (Engine.Scene is not Level) UpdateGameState(GameState.WrongMode, force).Forget();
+        else if (Engine.Scene.Paused) UpdateGameState(GameState.Paused, force).Forget();
+        //else if (!Engine.Scene.Focused) UpdateGameState(GameState.NotFocused, force).Forget();
+        else UpdateGameState(GameState.Ready, force).Forget();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Task<bool> UpdateGameState(GameState newState, bool force) => UpdateGameState(newState, null, force);
+    private async Task<bool> UpdateGameState(GameState newState, string? message = null, bool force = false)
+    {
+        if (force || (_last_game_state != newState))
+        {
+            _last_game_state = newState;
+            return await _client.Respond(new GameUpdate(newState, message));
+        }
+        return true;
+    }
+
     private async Task<bool> Respond(EffectRequest request, EffectStatus result, TimeSpan? timeRemaining = null, string message = "")
     {
         try
         {
-            return await _client.Respond(new()
+            return await _client.Respond(new EffectResponse
             {
                 id = request.id,
                 status = result,

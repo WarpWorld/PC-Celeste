@@ -138,7 +138,7 @@ public class SimpleTCPClient : IDisposable
     public event Action<SimpleJSONRequest> OnRequestReceived;
     public event Action OnConnected;
 
-    public async Task<bool> Respond(EffectResponse response)
+    public async Task<bool> Respond(SimpleJSONResponse response)
     {
         string json = JsonConvert.SerializeObject(response, JSON_SETTINGS);
         byte[] buffer = Encoding.UTF8.GetBytes(json + '\0');
