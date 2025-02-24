@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using ConnectorLib.JSON;
 using Newtonsoft.Json;
 
-namespace CrowdControl;
+namespace Celeste.Mod.CrowdControl;
 
 public class SimpleTCPClient : IDisposable
 {
@@ -94,13 +94,17 @@ public class SimpleTCPClient : IDisposable
                 //this is "slow" but the messages are tiny so we don't really care
                 foreach (byte b in buf.Take(bytesRead))
                 {
-                    if (b != 0) { mBytes.Add(b); }
+                    if (b != 0) mBytes.Add(b);
                     else
                     {
                         //Log.Debug($"Got a complete message: {mBytes.ToArray().ToHexadecimalString()}");
                         string json = Encoding.UTF8.GetString(mBytes.ToArray());
                         //Log.Debug($"Got a complete message: {json}");
-                        SimpleJSONRequest req = SimpleJSONRequest.Parse(json);
+                        if (!SimpleJSONRequest.TryParse(json, out SimpleJSONRequest? req))
+                        {
+                            Log.Error("Failed to parse JSON payload.");
+                            continue;
+                        }
                         //Log.Debug($"Got a request with ID {req.id}.");
                         try { OnRequestReceived?.Invoke(req); }
                         catch (Exception e) { Log.Error(e); }

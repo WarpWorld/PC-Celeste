@@ -7,17 +7,17 @@ public class MetadataDeaths : Metadata
 {
     public override string Key => "deaths";
 
-    public override EffectResponseMetadata TryGetValue()
+    public override DataResponse TryGetValue()
     {
-        if (Engine.Scene is not Level level)
-            return EffectResponseMetadata.Failure(Key, "Not in a level.");
+        if (Level == null)
+            return DataResponse.Failure(Key, "Not in a level.");
         //if (Player == null)
         //    return EffectResponseMetadata.Failure(Key, "Player object not found.");
 
-        return EffectResponseMetadata.Success(Key, new
+        return DataResponse.Success(Key, new
         {
-            level = level.Session.DeathsInCurrentLevel,
-            total = level.Session.Deaths
+            level = Level.Session.DeathsInCurrentLevel,
+            total = Level.Session.Deaths
         });
     }
 }

@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using ConnectorLib.JSON;
-using CrowdControl;
 using Microsoft.Xna.Framework;
 using Monocle;
 
@@ -16,14 +15,18 @@ public abstract class Effect
 
     public abstract string Code { get; }
 
-    protected bool _active;
     private readonly object _activity_lock = new();
 
     public TimeSpan Elapsed { get; set; }
 
+    public bool Paused { get; set; }
+
     public bool IsTimerTicking { get; set; }
 
+    protected Camera? Camera => Level?.Camera;
+    protected Level? Level => CrowdControlHelper.Instance.Level;
     protected Player? Player => CrowdControlHelper.Instance.Player;
+    protected Scene? Scene => CrowdControlHelper.Instance.Scene;
 
     public virtual EffectType Type => EffectType.Instant;
 
@@ -35,37 +38,35 @@ public abstract class Effect
 
     public virtual Type[] ParameterTypes => System.Type.EmptyTypes;
 
-    protected object[] Parameters { get; private set; } = new object[0];
+    protected object[] Parameters { get; private set; } = [];
 
     public virtual string Group { get; }
 
-    public virtual string[] Mutex { get; } = new string[0];
+    public virtual string[] Mutex { get; } = [];
 
     private static readonly ConcurrentDictionary<string, bool> _mutexes = new();
 
     private static bool TryGetMutexes(IEnumerable<string> mutexes)
     {
-        List<string> captured = new();
+        List<string> captured = [];
         bool result = true;
         foreach (string mutex in mutexes)
         {
-            if (_mutexes.TryAdd(mutex, true)) { captured.Add(mutex); }
+            if (_mutexes.TryAdd(mutex, true)) captured.Add(mutex);
             else
             {
                 result = false;
                 break;
             }
         }
-        if (!result) { FreeMutexes(captured); }
+        if (!result) FreeMutexes(captured);
         return result;
     }
 
     public static void FreeMutexes(IEnumerable<string> mutexes)
     {
         foreach (string mutex in mutexes)
-        {
             _mutexes.TryRemove(mutex, out _);
-        }
     }
 
     public enum EffectType : byte
@@ -77,17 +78,17 @@ public abstract class Effect
 
     public bool Active
     {
-        get => _active;
+        get;
         private set
         {
-            if (_active == value) { return; }
-            _active = value;
+            if (field == value) return;
+            field = value;
             if (value)
             {
                 Elapsed = TimeSpan.Zero;
                 Start();
             }
-            else { End(); }
+            else End();
         }
     }
 
@@ -99,11 +100,15 @@ public abstract class Effect
 
     public virtual void End() => Log.Debug($"{GetType().Name} was stopped. [{LocalID}]");
 
-    public virtual void Update(GameTime gameTime) => Elapsed += gameTime.ElapsedGameTime;
+    public virtual void Update(GameTime gameTime)
+    {
+        if (!Paused)
+            Elapsed += gameTime.ElapsedGameTime;
+    }
 
     public virtual void Draw(GameTime gameTime) { }
 
-    public virtual bool IsReady() => (Engine.Scene is Level) && (Player.Active);
+    public virtual bool IsReady() => Player?.Active ?? false;
 
     //public bool TryStart() => TryStart(new object[0]);
 
@@ -111,21 +116,20 @@ public abstract class Effect
     {
         lock (_activity_lock)
         {
-            if (Active || (!IsReady())) { return false; }
-            if (!TryGetMutexes(Mutex)) { return false; }
+            if (Active || (!IsReady())) return false;
+            if (!TryGetMutexes(Mutex)) return false;
 
             CurrentRequest = request;
 
             int len = ParameterTypes.Length;
             object[] p = new object[len];
             for (int i = 0; i < len; i++)
-            {
                 p[i] = Convert.ChangeType(request.parameters[i], ParameterTypes[i]);
-            }
             Parameters = p;
 
             Duration = request.duration.HasValue ? TimeSpan.FromMilliseconds(request.duration.Value) : DefaultDuration;
 
+            Paused = false;
             Active = true;
             return true;
         }
@@ -135,7 +139,7 @@ public abstract class Effect
     {
         lock (_activity_lock)
         {
-            if (!Active) { return false; }
+            if (!Active) return false;
             FreeMutexes(Mutex);
             Active = false;
             CurrentRequest = null;

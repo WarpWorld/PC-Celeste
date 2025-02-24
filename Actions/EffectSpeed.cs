@@ -20,7 +20,7 @@ public class EffectSpeed : Effect
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (Engine.Scene is not Level)) { return; }
+        if (!Active || (Level == null)) { return; }
 
         Engine.TimeRate = Rate;
     }

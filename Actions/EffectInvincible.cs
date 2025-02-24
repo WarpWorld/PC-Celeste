@@ -18,7 +18,7 @@ public class EffectInvincible : Effect
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (Engine.Scene is not Level level) || (Player == null)) { return; }
+        if (!Active || (Level == null) || (Player == null)) { return; }
 
         SaveData.Instance.Assists.Invincible = true;
     }

@@ -14,14 +14,14 @@ public class EffectGiantOshiro : EffectOshiro
 
     public override AngryOshiro NewOshiro(Vector2 position)
     {
-        AngryOshiro result = new(position, false) {Sprite = {Scale = SCALE} };
+        AngryOshiro result = new(position, false) { Sprite = { Scale = SCALE } };
         return result;
     }
 
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (Engine.Scene is not Level level) || (Player == null)) { return; }
+        if (!Active || (Level == null) || (Player == null)) { return; }
 
         if (Oshiro != null) { Oshiro.Sprite.Scale = SCALE; }
     }

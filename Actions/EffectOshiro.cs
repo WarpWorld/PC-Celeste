@@ -16,26 +16,26 @@ public class EffectOshiro : Effect
 
     public override string[] Mutex { get; } = { "oshiro" };
 
-    public AngryOshiro Oshiro;
+    public AngryOshiro? Oshiro;
 
     public virtual AngryOshiro NewOshiro(Vector2 position) => new(position, false);
 
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (Engine.Scene is not Level level) || level.Entities.Contains(Oshiro) || level.Entities.GetToAdd().Contains(Oshiro)) { return; }
+        if (!Active || (Level == null) || Level.Entities.Contains(Oshiro) || Level.Entities.ToAdd.Contains(Oshiro)) { return; }
 
-        Vector2 position = new(level.Bounds.Left - 32f, level.Bounds.Top + level.Bounds.Height / 2f);
+        Vector2 position = new(Level.Bounds.Left - 32f, Level.Bounds.Top + Level.Bounds.Height / 2f);
         Oshiro = NewOshiro(position);
-        level.Add(Oshiro);
+        Level.Add(Oshiro);
     }
 
     public override void End()
     {
         base.End();
-        if ((Oshiro == null) || (Engine.Scene is not Level level)) { return; }
+        if ((Oshiro == null) || (Level == null)) { return; }
 
-        level.Remove(Oshiro);
+        Level.Remove(Oshiro);
         Oshiro = null;
     }
 }

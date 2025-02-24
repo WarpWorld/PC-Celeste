@@ -20,16 +20,16 @@ public class EffectWind : Effect
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (Engine.Scene is not Level level) || level.Entities.Contains(Wind) || level.Entities.GetToAdd().Contains(Wind)) { return; }
+        if (!Active || (Level == null) || Level.Entities.Contains(Wind) || Level.Entities.ToAdd.Contains(Wind)) { return; }
 
-        WindController controller = level.Entities.FindFirst<WindController>();
+        WindController controller = Level.Entities.FindFirst<WindController>();
 
         if (controller == null)
         {
-            level.Foreground.Backdrops.Add(new WindSnowFG { Alpha = 0f });
+            Level.Foreground.Backdrops.Add(new WindSnowFG { Alpha = 0f });
             Wind = controller = new(WindController.Patterns.Alternating);
             controller.SetStartPattern();
-            level.Add(controller);
+            Level.Add(controller);
         }
         else
         {
@@ -44,7 +44,7 @@ public class EffectWind : Effect
         if (Wind == null) { return; }
 
         Wind.SetPattern(WindController.Patterns.None);
-        if (Engine.Scene is Level level) { level.Remove(Wind); }
+        if (Engine.Scene is Level Level) { Level.Remove(Wind); }
         Wind = null;
     }
 }

@@ -1,12 +1,29 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Xna.Framework.Graphics;
 
-namespace CrowdControl;
+namespace Celeste.Mod.CrowdControl;
 
 internal static class Extensions
 {
+    public static Assembly CrowdControlAssembly { get; } = Assembly.GetExecutingAssembly();
+
+    private static readonly string m_resourcePath = "Celeste.Mod.CrowdControl.";
+
+    public static Texture2D LoadEmbeddedTexture(this GraphicsDevice graphicsDevice, string resourcePath)
+    {
+        resourcePath = m_resourcePath + resourcePath.Replace('\\', '.');
+        using Stream? stream = CrowdControlAssembly.GetManifestResourceStream(resourcePath);
+        if (stream == null)
+            throw new FileNotFoundException($"Embedded resource '{resourcePath}' not found.");
+
+        return Texture2D.FromStream(graphicsDevice, stream);
+    }
+
     [DebuggerStepThrough]
     public static async void Forget(this Task task)
     {

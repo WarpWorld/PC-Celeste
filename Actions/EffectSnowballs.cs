@@ -14,23 +14,23 @@ public class EffectSnowballs : Effect
 
     public override TimeSpan DefaultDuration { get; } = TimeSpan.FromSeconds(30);
 
-    public Snowball Snowball;
+    public Snowball? Snowball;
 
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (Engine.Scene is not Level level) || level.Entities.Contains(Snowball) || level.Entities.GetToAdd().Contains(Snowball)) { return; }
+        if (!Active || (Level == null) || Level.Entities.Contains(Snowball) || Level.Entities.ToAdd.Contains(Snowball)) { return; }
 
         Snowball = new();
-        level.Add(Snowball);
+        Level.Add(Snowball);
     }
 
     public override void End()
     {
         base.End();
-        if ((Snowball == null) || (Engine.Scene is not Level level)) { return; }
+        if ((Snowball == null) || (Level == null)) { return; }
 
-        level.Remove(Snowball);
+        Level.Remove(Snowball);
         Snowball = null;
     }
 }

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace CrowdControl;
+namespace Celeste.Mod.CrowdControl;
 
 internal static class Log
 {
@@ -42,5 +42,5 @@ internal static class Log
     public static void InvokeOnMessage(object message, bool omitTimestamp = false)
         => OnMessage?.Invoke((omitTimestamp ? string.Empty : $"[{DateTimeOffset.UtcNow}] ") + (message?.ToString() ?? "(null)"));
 
-    public static event Action<string> OnMessage;
+    public static event Action<string>? OnMessage;
 }

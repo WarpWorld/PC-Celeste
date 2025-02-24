@@ -25,7 +25,7 @@ public class EffectHiccups : Effect
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (Engine.Scene is not Level level) || (Player == null)) { return; }
+        if (!Active || (Level == null) || (Player == null)) { return; }
 
         if ((Elapsed - _last_hiccup) > HICCUP_INTERVAL)
         {

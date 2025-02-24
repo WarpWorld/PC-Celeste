@@ -21,16 +21,16 @@ public class EffectLaughter : Effect
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || Engine.Scene is not Level level || (Player == null)) { return; }
+        if (!Active || Level == null || (Player == null)) { return; }
 
-        if (level.Entities.Contains(Laughter) || level.Entities.GetToAdd().Contains(Laughter))
+        if (Level.Entities.Contains(Laughter) || Level.Entities.ToAdd.Contains(Laughter))
         {
             autoTriggerLaughOrigin.SetValue(Laughter, Laughter.Position = Player.Position);
         }
         else
         {
             Laughter ??= new(Player.Position, string.Empty, true, Player.Position);
-            level.Add(Laughter);
+            Level.Add(Laughter);
             Laughter.Enabled = true;
         }
     }
@@ -38,9 +38,9 @@ public class EffectLaughter : Effect
     public override void End()
     {
         base.End();
-        if ((Laughter == null) || (Engine.Scene is not Level level)) { return; }
+        if ((Laughter == null) || (Level == null)) { return; }
 
-        level.Remove(Laughter);
+        Level.Remove(Laughter);
         Laughter = null;
     }
 }

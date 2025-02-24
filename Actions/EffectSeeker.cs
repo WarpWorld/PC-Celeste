@@ -21,19 +21,19 @@ public class EffectSeeker : Effect
     public override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
-        if (!Active || (Engine.Scene is not Level level) || level.Entities.Contains(Seeker) || level.Entities.GetToAdd().Contains(Seeker)) { return; }
+        if (!Active || (Level == null) || Level.Entities.Contains(Seeker) || Level.Entities.ToAdd.Contains(Seeker)) { return; }
 
-        Vector2 position = new(level.Bounds.Left + (level.Bounds.Width / 2f), level.Bounds.Top + +(level.Bounds.Height / 2f));
+        Vector2 position = new(Level.Bounds.Left + (Level.Bounds.Width / 2f), Level.Bounds.Top + +(Level.Bounds.Height / 2f));
         Seeker = NewSeeker(position);
-        level.Add(Seeker);
+        Level.Add(Seeker);
     }
 
     public override void End()
     {
         base.End();
-        if ((Seeker == null) || (Engine.Scene is not Level level)) { return; }
+        if ((Seeker == null) || (Level == null)) { return; }
 
-        level.Remove(Seeker);
+        Level.Remove(Seeker);
         Seeker = null;
     }
 }

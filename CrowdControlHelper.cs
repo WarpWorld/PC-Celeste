@@ -7,12 +7,11 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
-using Celeste.Mod.CrowdControl.Actions;
 using ConnectorLib.JSON;
-using CrowdControl;
 using Microsoft.Xna.Framework;
 using Monocle;
 using Newtonsoft.Json.Linq;
+using Effect = Celeste.Mod.CrowdControl.Actions.Effect;
 
 namespace Celeste.Mod.CrowdControl;
 
@@ -42,9 +41,12 @@ public class CrowdControlHelper : DrawableGameComponent
 
     public bool GameReady = false;
 
-    private GameTime _last_time = new(TimeSpan.Zero, TimeSpan.Zero);
+    private bool m_effectsLoaded;
 
+    public Scene? Scene;
+    public Level? Level;
     public Player? Player;
+    public Camera? Camera;
 
     public readonly Dictionary<string, Metadata.Metadata> Metadata = new();
 
@@ -54,8 +56,7 @@ public class CrowdControlHelper : DrawableGameComponent
 
     public static void Add()
     {
-        if (Instance != null) { return; }
-
+        if (Instance != null) return;
         Instance = new(Celeste.Instance);
         Celeste.Instance.Components.Add(Instance);
     }
@@ -71,12 +72,22 @@ public class CrowdControlHelper : DrawableGameComponent
 
     public CrowdControlHelper(Game game) : base(game)
     {
+        Instance = this;
+
 #if DEBUG
         Log.OnMessage += OnLogMessage;
 #endif
         UpdateOrder = -10000;
         DrawOrder = 10000;
 
+        _client = new();
+        _client.OnConnected += ClientConnected;
+        _client.OnRequestReceived += ClientRequestReceived;
+    }
+
+    private void TryLoadEffects()
+    {
+        if (m_effectsLoaded) return;
         //this may be GetEntryAssembly or GetExecutingAssembly depending on how the modloader works
         foreach (Type type in Assembly.GetEntryAssembly().GetTypes())
         {
@@ -98,10 +109,7 @@ public class CrowdControlHelper : DrawableGameComponent
                 Metadata.Add(metadata.Key, metadata);
             }
         }
-
-        _client = new();
-        _client.OnConnected += ClientConnected;
-        _client.OnRequestReceived += ClientRequestReceived;
+        m_effectsLoaded = true;
     }
 
     private void ClientConnected()
@@ -120,7 +128,7 @@ public class CrowdControlHelper : DrawableGameComponent
     {
         if (Instance == null) { return; }
 
-        Instance._client.Dispose();
+        Instance._client?.Dispose();
 
         foreach (Effect action in Instance.Effects.Values)
         {
@@ -139,7 +147,6 @@ public class CrowdControlHelper : DrawableGameComponent
     private static readonly TimeSpan MAX_GUI_MESSAGE_TIME = TimeSpan.FromSeconds(2);
     public override void Update(GameTime gameTime)
     {
-        _last_time = gameTime;
         base.Update(gameTime);
 
         //Log.Message(_game_status_update_timer);
@@ -150,12 +157,18 @@ public class CrowdControlHelper : DrawableGameComponent
             _game_status_update_timer = 0f;
         }
 
-        if (!(Engine.Scene is GameLoader)) { GameReady = true; }
-        if (!GameReady) { return; }
+        if (!(Engine.Scene is GameLoader)) GameReady = true;
+        if (!GameReady) return;
 
-        Player = Engine.Scene?.Tracker?.GetEntity<Player>();
-        foreach (Effect action in Active)
+        Scene = Engine.Scene;
+        Level = Scene as Level;
+        Player = Scene?.Tracker?.GetEntity<Player>();
+        Camera = Level?.Camera;
+
+        TryLoadEffects();
+        if (m_effectsLoaded) foreach (Effect action in Active)
         {
+            if (!action.Active) continue;
             try
             {
                 switch (action.Type)
@@ -165,7 +178,7 @@ public class CrowdControlHelper : DrawableGameComponent
                         if (timeRemaining > TimeSpan.Zero)
                         {
                             action.Update(gameTime);
-                            if ((Engine.Scene is not Level level) || level.InCutscene)
+                            if ((Level == null) || Level.InCutscene || action.Paused)
                             {
                                 if (action.IsTimerTicking)
                                 {
@@ -180,7 +193,7 @@ public class CrowdControlHelper : DrawableGameComponent
                                 Respond(action.CurrentRequest, EffectStatus.Resumed, timeRemaining).Forget();
                             }
                         }
-                        else { action.TryStop(); }
+                        else action.TryStop();
                         break;
                     case Effect.EffectType.BidWar:
                         action.Update(gameTime);
@@ -274,7 +287,7 @@ public class CrowdControlHelper : DrawableGameComponent
 
         if (effect.Type == Effect.EffectType.BidWar)
         {
-            foreach (Effect e in ActiveGroup(effect.Group)) { e.TryStop(); }
+            foreach (Effect e in ActiveGroup(effect.Group)) e.TryStop();
         }
         if (!effect.TryStart(request))
         {
@@ -336,13 +349,13 @@ public class CrowdControlHelper : DrawableGameComponent
 
     //in some other situation we might do a more advanced strategy where certain effects might
     //want to include additional fields, but we're going to send these for all requests
-    private Dictionary<string, EffectResponseMetadata> GetMetadata()
-        => Metadata.Select(m => new KeyValuePair<string, EffectResponseMetadata>(m.Key, m.Value.TryGetValue())).ToDictionary();
+    private Dictionary<string, DataResponse> GetMetadata()
+        => Metadata.Select(m => new KeyValuePair<string, DataResponse>(m.Key, m.Value.TryGetValue())).ToDictionary();
 
     private void UpdateGameState(bool force = false)
     {
-        if (Engine.Scene is not Level) UpdateGameState(GameState.WrongMode, force).Forget();
-        else if (Engine.Scene.Paused) UpdateGameState(GameState.Paused, force).Forget();
+        if (Level == null) UpdateGameState(GameState.WrongMode, force).Forget();
+        else if (Level.Paused) UpdateGameState(GameState.Paused, force).Forget();
         //else if (!Engine.Scene.Focused) UpdateGameState(GameState.NotFocused, force).Forget();
         else UpdateGameState(GameState.Ready, force).Forget();
     }
@@ -358,11 +371,42 @@ public class CrowdControlHelper : DrawableGameComponent
         }
         return true;
     }
+    
+    private static readonly TimeSpan START_WAIT_INTERVAL = TimeSpan.FromMilliseconds(20);
+    private static readonly TimeSpan MAX_START_WAIT = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan MAX_EFFECT_LIFETIME = TimeSpan.FromMinutes(30);
+    
+    private readonly ConcurrentDictionary<uint, DateTimeOffset> _allow_timed_responses = new();
+    private bool IsPrematureTimedResponse(EffectRequest request, EffectStatus result)
+    {
+        if (result == EffectStatus.Success)
+        {
+            _allow_timed_responses[request.id] = DateTimeOffset.UtcNow;
+            return false;
+        }
+        if (result is not (EffectStatus.Paused or EffectStatus.Resumed or EffectStatus.Finished)) return false;
+        if (!_allow_timed_responses.TryGetValue(request.id, out DateTimeOffset setOn)) return true;
+        if ((DateTimeOffset.UtcNow - setOn) > MAX_EFFECT_LIFETIME)
+        {
+            _allow_timed_responses.TryRemove(request.id, out _);
+            return true;
+        }
+        _allow_timed_responses[request.id] = DateTimeOffset.UtcNow;
+        return false;
+    }
 
     private async Task<bool> Respond(EffectRequest request, EffectStatus result, TimeSpan? timeRemaining = null, string message = "")
     {
         try
         {
+            TimeSpan timeWaited = TimeSpan.Zero;
+            while (timeWaited < MAX_START_WAIT)
+            {
+                if (_client.Connected && !IsPrematureTimedResponse(request, result)) break;
+                await Task.Delay(START_WAIT_INTERVAL);
+                timeWaited += START_WAIT_INTERVAL;
+            }
+            
             return await _client.Respond(new EffectResponse
             {
                 id = request.id,
